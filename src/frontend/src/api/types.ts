@@ -28,12 +28,3 @@ export interface MealPage {
   to: string;
   items: Meal[];
 }
-
-export interface ApiErrorBody {
-  error: {
-    code: string;
-    message: string;
-    requestId: string;
-    fields?: Record<string, string>;
-  };
-}

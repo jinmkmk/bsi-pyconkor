@@ -4,6 +4,7 @@ import re
 from typing import Any, Mapping
 
 from app.clients.neis import NeisClient
+from app.errors import ApiError, NeisResponseError
 from app.models import Meal, MealPage, School, SchoolPage, SchoolSummary
 
 
@@ -14,8 +15,6 @@ ALLERGEN_PATTERN = re.compile(r"\s*\((?:\d+[.\s]*)+\)\s*$")
 
 def validate_date_range(date_from: date, date_to: date) -> None:
     if date_from > date_to:
-        from app.errors import ApiError
-
         raise ApiError(
             400,
             "INVALID_DATE_RANGE",
@@ -23,8 +22,6 @@ def validate_date_range(date_from: date, date_to: date) -> None:
             {"from": "날짜 범위를 확인해 주세요."},
         )
     if (date_to - date_from).days + 1 > 31:
-        from app.errors import ApiError
-
         raise ApiError(
             400,
             "DATE_RANGE_TOO_LONG",
@@ -115,8 +112,6 @@ class LunchService:
                 address=str(row.get("ORG_RDNMA", "")),
             )
         except (KeyError, TypeError, ValueError) as exc:
-            from app.errors import NeisResponseError
-
             raise NeisResponseError from exc
 
     @staticmethod
@@ -133,6 +128,4 @@ class LunchService:
                 nutrition=str(row["NTR_INFO"]) if row.get("NTR_INFO") else None,
             )
         except (KeyError, TypeError, ValueError) as exc:
-            from app.errors import NeisResponseError
-
             raise NeisResponseError from exc

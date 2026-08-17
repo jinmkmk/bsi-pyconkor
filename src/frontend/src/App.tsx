@@ -9,7 +9,7 @@ import {
 import { ApiError, getMeals, searchSchools } from "./api/client";
 import type { MealPage, School } from "./api/types";
 
-type RequestState = "idle" | "loading" | "success" | "error";
+type RequestState = "idle" | "loading" | "error";
 
 function toIsoDate(date: Date): string {
   const offset = date.getTimezoneOffset() * 60_000;
@@ -66,7 +66,7 @@ export default function App() {
     try {
       const result = await searchSchools(normalized);
       setSchools(result.items);
-      setSearchState("success");
+      setSearchState("idle");
       if (result.items.length === 0) {
         setMessage("검색 결과가 없습니다. 학교명이나 지역을 확인해 주세요.");
       }
@@ -125,7 +125,7 @@ export default function App() {
       );
       result.items.sort((a, b) => a.date.localeCompare(b.date));
       setMeals(result);
-      setMealState("success");
+      setMealState("idle");
       if (result.items.length === 0) {
         setMessage("선택한 기간에 등록된 중식이 없습니다.");
       }

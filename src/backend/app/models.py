@@ -38,14 +38,3 @@ class MealPage(BaseModel):
     from_: date = Field(serialization_alias="from")
     to: date
     items: list[Meal]
-
-
-class ErrorDetail(BaseModel):
-    code: str
-    message: str
-    requestId: str
-    fields: dict[str, str] | None = None
-
-
-class ErrorResponse(BaseModel):
-    error: ErrorDetail

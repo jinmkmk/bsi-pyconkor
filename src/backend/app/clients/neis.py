@@ -16,11 +16,8 @@ UNAVAILABLE_CODES = {"ERROR-290", "ERROR-300", "ERROR-301", "INFO-300"}
 
 
 class NeisClient:
-    def __init__(
-        self, settings: Settings, transport: httpx.AsyncBaseTransport | None = None
-    ) -> None:
+    def __init__(self, settings: Settings) -> None:
         self._settings = settings
-        self._transport = transport
 
     async def search_schools(
         self, query: str, page: int, page_size: int
@@ -63,7 +60,6 @@ class NeisClient:
             async with httpx.AsyncClient(
                 base_url=self._settings.neis_base_url,
                 timeout=self._settings.request_timeout,
-                transport=self._transport,
             ) as client:
                 response = await client.get(f"/hub/{endpoint}", params=request_params)
                 response.raise_for_status()

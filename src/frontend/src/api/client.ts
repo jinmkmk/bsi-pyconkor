@@ -1,12 +1,9 @@
-import type { ApiErrorBody, Meal, MealPage, School, SchoolPage } from "./types";
+import type { Meal, MealPage, School, SchoolPage } from "./types";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "";
 
 export class ApiError extends Error {
-  constructor(
-    message: string,
-    public readonly code: string,
-  ) {
+  constructor(message: string) {
     super(message);
   }
 }
@@ -20,24 +17,24 @@ async function request(path: string): Promise<unknown> {
   } catch {
     throw new ApiError(
       "서버에 연결할 수 없습니다. 네트워크를 확인하고 다시 시도해 주세요.",
-      "NETWORK_ERROR",
     );
   }
 
   const body: unknown = await response.json().catch(() => null);
   if (!response.ok) {
     if (isApiError(body)) {
-      throw new ApiError(body.error.message, body.error.code);
+      throw new ApiError(body.error.message);
     }
     throw new ApiError(
       "요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.",
-      "INVALID_RESPONSE",
     );
   }
   return body;
 }
 
-function isApiError(value: unknown): value is ApiErrorBody {
+function isApiError(
+  value: unknown,
+): value is { error: { code: string; message: string } } {
   if (typeof value !== "object" || value === null || !("error" in value)) {
     return false;
   }
@@ -57,7 +54,7 @@ export async function searchSchools(query: string): Promise<SchoolPage> {
     `/api/schools?query=${encodeURIComponent(query)}&pageSize=20`,
   );
   if (!isSchoolPage(body)) {
-    throw new ApiError("학교 검색 응답 형식이 올바르지 않습니다.", "INVALID_RESPONSE");
+    throw new ApiError("학교 검색 응답 형식이 올바르지 않습니다.");
   }
   return body;
 }
@@ -76,7 +73,7 @@ export async function getMeals(
   });
   const body = await request(`/api/meals?${params.toString()}`);
   if (!isMealPage(body)) {
-    throw new ApiError("급식 응답 형식이 올바르지 않습니다.", "INVALID_RESPONSE");
+    throw new ApiError("급식 응답 형식이 올바르지 않습니다.");
   }
   return body;
 }
