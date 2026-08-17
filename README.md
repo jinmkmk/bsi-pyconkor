@@ -54,7 +54,30 @@ NEIS 공개 API를 활용해 초중고 급식 메뉴를 조회하고 AI 에이�
 | `data/` | API 명세 작성에 사용하는 원본 데이터 |
 | `docs/` | 단계별 워크숍 가이드                 |
 
-프론트엔드, 백엔드 및 배포 관련 소스는 워크숍을 진행하면서 참가자의 저장소에 생성됩니다.
+애플리케이션 코드는 `src/frontend`의 React 앱과 `src/backend`의 FastAPI 앱으로
+구성됩니다. 브라우저는 내부 `/api`만 호출하며 NEIS 인증키는 백엔드에서만
+사용합니다.
+
+## 애플리케이션 실행
+
+1. `.env.example`을 `.env`로 복사합니다.
+2. [NEIS Open API](https://open.neis.go.kr/)에서 발급받은 키를
+   `NEIS_API_KEY`에 입력합니다.
+3. Windows에서는 `./run.ps1`, macOS/Linux에서는 `./run.sh`를 실행합니다.
+4. 브라우저에서 `http://localhost:5173`을 엽니다.
+
+직접 개발 서버를 실행하려면 백엔드는 `src/backend`에서
+`python -m pip install -e ".[dev]"` 후
+`uvicorn app.main:app --reload`을 실행하고, 프론트엔드는 `src/frontend`에서
+`npm ci` 후 `npm run dev`를 실행합니다.
+
+### 테스트
+
+```text
+cd src/backend && pytest
+cd src/frontend && npm test
+cd e2e && npm test
+```
 
 ## 추가 학습 자료
 
