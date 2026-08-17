@@ -9,6 +9,8 @@
 # Node.js
 node_modules/
 coverage/
+test-results/
+playwright-report/
 .nyc_output/
 dist/
 out/
