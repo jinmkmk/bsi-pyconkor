@@ -10,11 +10,13 @@ NEIS 외부 API 계약은 `data/openapi.json`, 프론트엔드와 백엔드 사�
 
 - React 기반 프론트엔드와 Python 기반 백엔드를 분리한다.
 - 브라우저는 백엔드 API만 호출하며 NEIS API를 직접 호출하지 않는다.
-- 백엔드만 NEIS 인증키를 보유하고 `data/openapi.json`에 따라 NEIS API를
-  호출한다.
+- 백엔드와 MCP 서버만 NEIS 인증키를 보유하고 `data/openapi.json`에 따라
+  NEIS API를 호출한다.
 - 프론트엔드와 백엔드는 각각 별도의 클라이언트/서비스 계층에서 API 통신을
   구현한다.
-- 두 앱은 Docker 이미지로 빌드하고 Docker Compose로 함께 실행한다.
+- 프론트엔드, 백엔드와 MCP 서버는 Docker 이미지로 빌드하고 Docker Compose로
+  함께 실행한다.
+- 공식 Python MCP SDK 1.x 기반의 독립 MCP 서버를 Streamable HTTP로 제공한다.
 - 이번 구현은 조회 전용이며 데이터베이스를 도입하지 않는다.
 
 ## 3. 권장 기술 스택
@@ -24,6 +26,7 @@ NEIS 외부 API 계약은 `data/openapi.json`, 프론트엔드와 백엔드 사�
 | 프론트엔드 | React, TypeScript, Vite | 타입 안전한 컴포넌트 개발과 간단한 빌드 구성 |
 | 스타일 | CSS 디자인 토큰과 컴포넌트 스타일 | Linear에서 영감을 받은 시각 체계를 불필요한 UI 프레임워크 종속 없이 일관되게 적용 |
 | 백엔드 | Python, FastAPI, Pydantic | 비동기 HTTP API, 입력 검증 및 OpenAPI 지원 |
+| MCP 서버 | Python, MCP Python SDK 1.29.0 | 표준 도구 계약과 Streamable HTTP 전송 지원 |
 | 외부 HTTP | `httpx` | FastAPI와 함께 비동기 호출 및 타임아웃을 명시하기 용이 |
 | 프론트엔드 테스트 | Vitest, React Testing Library, MSW | 사용자 관점 통합 테스트와 API 모킹 |
 | 백엔드 테스트 | pytest, FastAPI TestClient 또는 `httpx` | 단위 및 API 통합 테스트 |
@@ -49,13 +52,18 @@ NEIS 외부 API 계약은 `data/openapi.json`, 프론트엔드와 백엔드 사�
 |   |   |   `-- styles/
 |   |   |-- Dockerfile
 |   |   `-- package.json
-|   `-- backend/
-|       |-- app/
-|       |   |-- api/             # HTTP 라우트
-|       |   |-- clients/         # NEIS 전용 클라이언트
-|       |   |-- models/          # 내부 및 외부 데이터 모델
-|       |   |-- services/        # 변환 및 유스케이스
-|       |   `-- main.py
+|   |-- backend/
+|   |   |-- app/
+|   |   |   |-- api/             # HTTP 라우트
+|   |   |   |-- clients/         # NEIS 전용 클라이언트
+|   |   |   |-- models/          # 내부 및 외부 데이터 모델
+|   |   |   |-- services/        # 변환 및 유스케이스
+|   |   |   `-- main.py
+|   |   |-- tests/
+|   |   |-- Dockerfile
+|   |   `-- pyproject.toml
+|   `-- mcp/
+|       |-- lunch_mcp/           # MCP 도구, NEIS 클라이언트, 서비스
 |       |-- tests/
 |       |-- Dockerfile
 |       `-- pyproject.toml
@@ -79,6 +87,8 @@ flowchart LR
     B -->|data/openapi.json 계약 + API Key| N[NEIS 공개 API]
     N --> B
     B -->|정규화된 응답| F
+    A[AI 에이전트] -->|Streamable HTTP /mcp| M[MCP 서버]
+    M -->|data/openapi.json 계약 + API Key| N
 ```
 
 ### 5.1 프론트엔드 책임
@@ -97,6 +107,13 @@ flowchart LR
 - NEIS 응답 검증과 내부 계약 모델로의 정규화
 - 외부 API 오류를 안정적인 내부 오류 형식으로 변환
 - CORS, 타임아웃 및 로그 관리
+
+### 5.3 MCP 서버 책임
+
+- 백엔드와 독립적으로 실행하고 공식 MCP Python SDK 1.29.0을 사용한다.
+- `search_schools`, `get_school_lunches` 읽기 전용 도구를 제공한다.
+- 입력 및 NEIS 응답을 검증하고 결과 없음과 외부 오류를 MCP 도구 오류로 구분한다.
+- API 키, 외부 요청 URL 및 스택 추적을 도구 오류에 포함하지 않는다.
 
 ## 6. 데이터 흐름
 
@@ -316,17 +333,19 @@ origin과 자격 증명 허용을 함께 사용하지 않는다. 운영 환경�
 
 | 변수 | 용도 |
 |---|---|
-| `NEIS_API_KEY` | 백엔드가 NEIS를 호출할 때 사용하는 필수 인증키 |
+| `NEIS_API_KEY` | 백엔드와 MCP 서버가 NEIS를 호출할 때 사용하는 필수 인증키 |
 | `NEIS_BASE_URL` | 기본값이 있는 NEIS 서버 URL |
+| `NEIS_REQUEST_TIMEOUT` | 백엔드와 MCP 서버의 NEIS 요청 제한 시간 |
+| `MCP_PORT` | 로컬 호스트에 공개할 MCP 서버 포트 |
 | `FRONTEND_ORIGIN` | 백엔드 CORS 허용 origin |
 | `VITE_API_BASE_URL` | 프론트엔드의 백엔드 API 기준 URL |
 
-실제 `.env`는 Git에서 제외한다. `NEIS_API_KEY`는 백엔드 컨테이너에만 전달하고
-`VITE_` 접두사 변수나 프론트엔드 이미지 빌드 인자로 전달하지 않는다.
+실제 `.env`는 Git에서 제외한다. `NEIS_API_KEY`는 백엔드와 MCP 컨테이너에만
+전달하고 `VITE_` 접두사 변수나 프론트엔드 이미지 빌드 인자로 전달하지 않는다.
 
 ## 12. Docker Compose
 
-`compose.yml`은 최소 두 서비스를 정의한다.
+`compose.yml`은 프론트엔드, 백엔드 및 MCP 서버 서비스를 정의한다.
 
 ### 12.1 `backend`
 
@@ -344,7 +363,17 @@ origin과 자격 증명 허용을 함께 사용하지 않는다. 운영 환경�
 - 백엔드 healthcheck가 준비된 뒤 시작하도록 구성하되, 런타임 API 오류도 UI에서
   처리한다.
 
-두 서비스는 Compose 네트워크의 서비스 이름으로 통신한다. 로컬 실행에 필요한
+### 12.3 `mcp`
+
+- `src/mcp/Dockerfile`에서 빌드하고 8001 포트의 `/mcp`에서 Streamable HTTP를
+  제공한다.
+- 로컬 Compose 포트는 루프백에만 공개하고 SDK의 Host 및 Origin 검증으로 DNS
+  재바인딩을 차단한다.
+- 백엔드와 코드를 공유하거나 백엔드 API를 경유하지 않고 NEIS를 직접 호출한다.
+- `NEIS_API_KEY`, `NEIS_BASE_URL`, 타임아웃 설정을 서버 환경 변수로 주입한다.
+- `/health`는 MCP 프로세스 상태만 반환하며 인증키나 외부 데이터를 노출하지 않는다.
+
+세 서비스는 Compose 네트워크에서 함께 실행된다. 로컬 실행에 필요한
 명령과 `.env` 준비 절차는 구현 시 README에 추가한다.
 
 ## 13. 테스트 전략
@@ -398,6 +427,13 @@ Docker Compose 또는 동등한 전체 스택에서 브라우저를 실행하고
 추가로 검색 결과 없음, 잘못된 날짜 범위, 급식 없음의 핵심 실패 흐름을 검증한다.
 데스크톱과 모바일 viewport에서 최소 한 번씩 핵심 흐름을 실행한다.
 
+### 13.5 MCP 테스트
+
+- 서비스 단위 테스트로 입력 검증, 결과 없음, 중식 필터링과 정규화를 검증한다.
+- 모킹한 HTTP 전송으로 NEIS 계약, 빈 응답, 오류 코드와 타임아웃 매핑을 검증한다.
+- 공식 MCP 클라이언트 세션으로 도구 목록 조회, 호출, 구조화 결과와 도구 오류를
+  검증하며 실제 NEIS API나 인증키에는 의존하지 않는다.
+
 ## 14. 품질 및 운영 고려사항
 
 - 프론트엔드 빌드 시 타입 검사와 정적 분석을 수행한다.
@@ -420,4 +456,23 @@ Docker Compose 또는 동등한 전체 스택에서 브라우저를 실행하고
 | 프론트엔드 통합 테스트 | 13.1장 |
 | 백엔드 단위 및 통합 테스트 | 13.2~13.3장 |
 | 전체 사용자 흐름 E2E 테스트 | 13.4장 |
+| 독립 MCP 서버와 Streamable HTTP | 3, 5.3, 12.3장 |
+| MCP 도구 및 NEIS 연동 테스트 | 13.5장 |
 
+## 16. 개발 진행 상황
+
+2026-08-17 기준 구현 상태는 다음과 같다.
+
+| 영역 | 상태 | 구현 내용 |
+|---|---|---|
+| MCP 런타임 | 완료 | 공식 `mcp==1.29.0`, Streamable HTTP, stateless JSON 응답 |
+| 학교 검색 도구 | 완료 | `search_schools`와 구조화된 학교·교육청 식별 정보 |
+| 중식 조회 도구 | 완료 | `get_school_lunches`, 최대 31일, 중식 필터링 및 날짜 정렬 |
+| 오류 처리 | 완료 | 입력, 결과 없음, NEIS 사용 불가·잘못된 응답·타임아웃 구분 |
+| 보안 | 완료 | 비밀 비노출, Host·Origin 검증, Compose 루프백 포트 공개 |
+| 운영 | 완료 | 독립 Docker 이미지, Compose 서비스, `/health`, CI 작업 |
+| 테스트 | 완료 | 서비스·NEIS 클라이언트 단위 테스트와 공식 MCP 클라이언트 통합 테스트 |
+
+로컬 MCP 엔드포인트는 `http://localhost:8001/mcp`이며
+`npx @modelcontextprotocol/inspector http://localhost:8001/mcp`로 도구 목록과
+호출 결과를 확인할 수 있다.

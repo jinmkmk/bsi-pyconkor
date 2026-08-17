@@ -55,8 +55,9 @@ NEIS 공개 API를 활용해 초중고 급식 메뉴를 조회하고 AI 에이�
 | `docs/` | 단계별 워크숍 가이드                 |
 
 애플리케이션 코드는 `src/frontend`의 React 앱과 `src/backend`의 FastAPI 앱으로
-구성됩니다. 브라우저는 내부 `/api`만 호출하며 NEIS 인증키는 백엔드에서만
-사용합니다.
+구성됩니다. `src/mcp`에는 AI 에이전트가 학교와 중식 정보를 조회할 수 있는
+독립 MCP 서버가 있습니다. 브라우저는 내부 `/api`만 호출하며 NEIS 인증키는
+서버에서만 사용합니다.
 
 ## 애플리케이션 실행
 
@@ -65,6 +66,23 @@ NEIS 공개 API를 활용해 초중고 급식 메뉴를 조회하고 AI 에이�
    `NEIS_API_KEY`에 입력합니다.
 3. Windows에서는 `./run.ps1`, macOS/Linux에서는 `./run.sh`를 실행합니다.
 4. 브라우저에서 `http://localhost:5173`을 엽니다.
+
+MCP 서버는 Streamable HTTP 방식으로 `http://localhost:8001/mcp`에서
+실행됩니다. 직접 실행하려면 `src/mcp`에서 다음 명령을 사용합니다.
+
+```text
+python -m pip install -e ".[dev]"
+school-lunch-mcp
+```
+
+MCP Inspector는 저장소 루트에서 다음과 같이 연결할 수 있습니다.
+
+```text
+npx @modelcontextprotocol/inspector http://localhost:8001/mcp
+```
+
+제공 도구는 학교 이름 일부로 식별 정보를 찾는 `search_schools`와 교육청 코드,
+학교 코드, 시작일, 종료일로 중식을 조회하는 `get_school_lunches`입니다.
 
 직접 개발 서버를 실행하려면 백엔드는 `src/backend`에서
 `python -m pip install -e ".[dev]"` 후
@@ -75,6 +93,7 @@ NEIS 공개 API를 활용해 초중고 급식 메뉴를 조회하고 AI 에이�
 
 ```text
 cd src/backend && pytest
+cd src/mcp && pytest
 cd src/frontend && npm test
 cd e2e && npm test
 ```

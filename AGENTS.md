@@ -7,9 +7,21 @@
 ## 프로젝트 개요
 
 이 저장소는 NEIS 공개 API를 활용해 초중고 급식 메뉴를 조회하고 분석하는
-웹 애플리케이션을 단계별로 구현하는 워크숍입니다. 현재 저장소는 워크숍 문서와
-API 명세 원본을 중심으로 구성되어 있으며, 프론트엔드, 백엔드 및 배포 코드는
-워크숍을 진행하면서 추가될 수 있습니다.
+웹 애플리케이션과 AI 에이전트용 MCP 서버를 단계별로 구현하는 워크숍입니다.
+현재 React 프론트엔드, FastAPI 백엔드, 공식 MCP Python SDK 기반 MCP 서버와
+Docker Compose 실행 구성이 구현되어 있습니다.
+
+## 저장소 구조와 현재 구현
+
+- `src/frontend`: React와 TypeScript 기반 웹 사용자 인터페이스
+- `src/backend`: 브라우저용 FastAPI API와 NEIS 클라이언트
+- `src/mcp`: 백엔드와 독립적으로 NEIS를 호출하는 Streamable HTTP MCP 서버
+- `data/openapi.json`: NEIS 외부 API 계약의 기준
+- `src/openapi.json`: 프론트엔드와 백엔드 사이의 내부 API 계약
+- `compose.yml`: 프론트엔드, 백엔드, MCP 서버의 로컬 오케스트레이션
+
+MCP 서버는 공식 `mcp==1.29.0` SDK를 사용하며 `/mcp`에서
+`search_schools`, `get_school_lunches` 읽기 전용 도구를 제공합니다.
 
 ## 일반 작업 지침
 
@@ -35,6 +47,17 @@ API 명세 원본을 중심으로 구성되어 있으며, 프론트엔드, 백�
 - 기존 포매터, 린터 및 타입 검사 설정을 따르고 읽기 쉽고 작은 단위의 코드를
   작성합니다.
 
+### MCP 서버 가이드라인
+
+- `src/mcp`는 `src/backend`를 import하거나 백엔드 HTTP API를 경유하지 않는
+  독립 애플리케이션으로 유지합니다.
+- MCP 도구는 구조화된 Pydantic 모델을 반환하고, 예상 가능한 도메인 및 NEIS
+  오류는 안전한 `ToolError`로 변환합니다.
+- 도구 오류에 API 키, 요청 URL, 원본 예외 또는 스택 추적을 노출하지 않습니다.
+- Streamable HTTP의 Host 및 Origin 검증과 로컬 포트 제한을 유지합니다.
+- 새 도구에는 공식 MCP 클라이언트 세션을 이용한 목록 조회 및 호출 테스트를
+  추가합니다.
+
 ## TypeScript 가이드라인
 
 - 엄격한 타입을 유지하고 `any`, 불필요한 타입 단언 및 타입 검사 비활성화를
@@ -59,6 +82,16 @@ API 명세 원본을 중심으로 구성되어 있으며, 프론트엔드, 백�
   않은 도구나 명령을 임의로 도입하거나 추정하지 않습니다.
 - 문서만 변경한 경우 링크, 경로, 예제 및 Markdown 구조를 검토합니다.
 - 실행하지 못한 검증이나 남아 있는 실패가 있다면 결과에 명확히 기록합니다.
+
+현재 주요 검증 명령은 다음과 같습니다.
+
+```text
+cd src/backend && pytest
+cd src/mcp && pytest
+cd src/frontend && npm test
+cd e2e && npm test
+docker compose config
+```
 
 ## 보안
 

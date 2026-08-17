@@ -17,6 +17,26 @@ services:
       timeout: 3s
       retries: 5
 
+  mcp:
+    build: ./src/mcp
+    environment:
+      NEIS_API_KEY: ${NEIS_API_KEY}
+      NEIS_BASE_URL: ${NEIS_BASE_URL:-https://open.neis.go.kr}
+      NEIS_REQUEST_TIMEOUT: ${NEIS_REQUEST_TIMEOUT:-8}
+      MCP_HOST: 0.0.0.0
+      MCP_PORT: "8001"
+    ports:
+      - "127.0.0.1:${MCP_PORT:-8001}:8001"
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://localhost:8001/health')"
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
   frontend:
     build: ./src/frontend
     depends_on:
